@@ -1,0 +1,1 @@
+{"name":"sistema-ganadero-web","private":true,"version":"0.2.0","type":"module","scripts":{"dev":"vite"},"dependencies":{"react":"^19.1.1","react-dom":"^19.1.1"},"devDependencies":{"vite":"^7.1.3"}}

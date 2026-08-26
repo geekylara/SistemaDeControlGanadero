@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16
+    container_name: ganaderia_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ganaderia
+      POSTGRES_USER: ganadero
+      POSTGRES_PASSWORD: ganadero_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: ./backend
+    container_name: ganaderia_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://ganadero:ganadero_dev@db:5432/ganaderia
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  web:
+    build: ./frontend
+    container_name: ganaderia_web
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
