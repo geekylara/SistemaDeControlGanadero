@@ -236,29 +236,81 @@ function Purchase({ suppliers, onDone }) {
   );
 }
 
+function animalSearchText(animal) {
+  return [
+    animal.ear_tag,
+    animal.lot,
+    animal.breed,
+    animal.supplier,
+  ].filter(Boolean).join(" ");
+}
+
+function AnimalSearchSelect({ label, animals, excludeIds = [], placeholder, emptyText, actionLabel, onSelect }) {
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+
+  const filteredAnimals = useMemo(() => {
+    const text = search.trim().toLowerCase();
+    const excluded = new Set(excludeIds);
+    return animals
+      .filter((animal) => !excluded.has(animal.id))
+      .filter((animal) => !text || animalSearchText(animal).toLowerCase().includes(text))
+      .slice(0, 12);
+  }, [animals, excludeIds, search]);
+
+  function pickAnimal() {
+    const exactMatch = filteredAnimals.find((animal) => animal.ear_tag.toLowerCase() === search.trim().toLowerCase());
+    const animal = filteredAnimals.find((item) => String(item.id) === selectedId) || exactMatch || (filteredAnimals.length === 1 ? filteredAnimals[0] : null);
+    if (!animal) {
+      alert("Digita y selecciona una coincidencia de la lista.");
+      return;
+    }
+    onSelect(animal);
+    setSearch("");
+    setSelectedId("");
+  }
+
+  return (
+    <div className="searchable-picker">
+      <label>
+        {label}
+        <input
+          placeholder={placeholder}
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setSelectedId("");
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              pickAnimal();
+            }
+          }}
+        />
+      </label>
+      <select
+        size={Math.min(Math.max(filteredAnimals.length, 2), 6)}
+        value={selectedId}
+        onChange={(event) => setSelectedId(event.target.value)}
+        onDoubleClick={pickAnimal}
+      >
+        {filteredAnimals.length ? filteredAnimals.map((animal) => (
+          <option value={animal.id} key={animal.id}>
+            {animal.ear_tag} | {animal.lot || "Sin lote"} | actual {kg(animal.current_weight_kg)}
+          </option>
+        )) : <option value="">{emptyText}</option>}
+      </select>
+      <button className="secondary" type="button" onClick={pickAnimal}>{actionLabel}</button>
+    </div>
+  );
+}
+
 function Weighings({ animals, weighings, onDone }) {
   const activeAnimals = animals.filter((animal) => animal.status === "Activo");
   const [dateValue, setDateValue] = useState(today);
   const [rows, setRows] = useState([]);
-  const [animalSearch, setAnimalSearch] = useState("");
   const [history, setHistory] = useState(null);
-
-  const filteredAnimals = useMemo(() => {
-    const text = animalSearch.trim().toLowerCase();
-    const existing = new Set(rows.map((row) => row.animal_id));
-    return activeAnimals
-      .filter((animal) => !existing.has(animal.id))
-      .filter((animal) => {
-        if (!text) return true;
-        return [
-          animal.ear_tag,
-          animal.lot,
-          animal.breed,
-          animal.supplier,
-        ].some((value) => String(value || "").toLowerCase().includes(text));
-      })
-      .slice(0, 8);
-  }, [activeAnimals, animalSearch, rows]);
 
   const pendingSummary = useMemo(() => {
     const validRows = rows.filter((row) => row.weight_kg !== "");
@@ -266,17 +318,15 @@ function Weighings({ animals, weighings, onDone }) {
     return { count: validRows.length, total };
   }, [rows]);
 
-  function addAnimalById(id) {
-    if (rows.some((row) => row.animal_id === id)) {
+  function addAnimal(animal) {
+    if (rows.some((row) => row.animal_id === animal.id)) {
       alert("Ese animal ya está en la jornada.");
       return;
     }
-    const animal = animals.find((item) => item.id === id);
-    if (!animal) return;
     setRows([
       ...rows,
       {
-        animal_id: id,
+        animal_id: animal.id,
         ear_tag: animal.ear_tag,
         initial_weight_kg: animal.initial_weight_kg,
         current_weight_kg: animal.current_weight_kg,
@@ -284,20 +334,6 @@ function Weighings({ animals, weighings, onDone }) {
         notes: "",
       },
     ]);
-    setAnimalSearch("");
-  }
-
-  function addAnimal() {
-    if (filteredAnimals.length === 1) {
-      addAnimalById(filteredAnimals[0].id);
-      return;
-    }
-    const exactMatch = filteredAnimals.find((animal) => animal.ear_tag.toLowerCase() === animalSearch.trim().toLowerCase());
-    if (exactMatch) {
-      addAnimalById(exactMatch.id);
-      return;
-    }
-    alert("Digita un arete y selecciona el animal correcto de la lista.");
   }
 
   const addAllActive = () => {
@@ -368,31 +404,17 @@ function Weighings({ animals, weighings, onDone }) {
         </div>
         <div className="grid two">
           <label>Fecha<input type="date" value={dateValue} onChange={(event) => setDateValue(event.target.value)} /></label>
-          <label>
-            Buscar animal
-            <input
-              placeholder="Digita el arete, lote, raza..."
-              value={animalSearch}
-              onChange={(event) => setAnimalSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addAnimal();
-                }
-              }}
-            />
-          </label>
-        </div>
-        <div className="animal-results">
-          {filteredAnimals.length ? filteredAnimals.map((animal) => (
-            <button type="button" key={animal.id} onClick={() => addAnimalById(animal.id)}>
-              <strong>{animal.ear_tag}</strong>
-              <span>{animal.lot || "Sin lote"} · actual {kg(animal.current_weight_kg)}</span>
-            </button>
-          )) : <div className="empty-result">No hay animales activos que coincidan.</div>}
+          <AnimalSearchSelect
+            label="Buscar animal"
+            animals={activeAnimals}
+            excludeIds={rows.map((row) => row.animal_id)}
+            placeholder="Digita arete, lote, raza..."
+            emptyText="No hay animales activos que coincidan."
+            actionLabel="+ Agregar coincidencia"
+            onSelect={addAnimal}
+          />
         </div>
         <div className="button-row">
-          <button className="secondary" onClick={addAnimal}>+ Agregar coincidencia</button>
           <button className="secondary" onClick={addAllActive}>+ Agregar activos</button>
         </div>
         <div className="table-wrap">
@@ -421,10 +443,14 @@ function Weighings({ animals, weighings, onDone }) {
       <div className="panel">
         <h2>Historial individual</h2>
         <p className="muted">Consulta la evolución de un animal.</p>
-        <select defaultValue="" onChange={(event) => event.target.value && view(Number(event.target.value))}>
-          <option value="">Seleccionar animal</option>
-          {animals.map((animal) => <option value={animal.id} key={animal.id}>{animal.ear_tag}</option>)}
-        </select>
+        <AnimalSearchSelect
+          label="Buscar animal"
+          animals={animals}
+          placeholder="Digita arete, lote, raza..."
+          emptyText="No hay animales que coincidan."
+          actionLabel="Ver historial"
+          onSelect={(animal) => view(animal.id)}
+        />
         {history && (
           <>
             <div className="mini-cards">
