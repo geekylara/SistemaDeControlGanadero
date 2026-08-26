@@ -261,6 +261,48 @@ select {
   margin: 14px 0;
 }
 
+.animal-results {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 14px 0 2px;
+}
+
+.animal-results button,
+.empty-result {
+  min-height: 58px;
+  border: 1px solid #dce4da;
+  border-radius: 8px;
+  background: #fbfcfb;
+  color: #172018;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.animal-results button {
+  cursor: pointer;
+}
+
+.animal-results button:hover {
+  border-color: #9fb49f;
+  background: #f2f6f1;
+}
+
+.animal-results strong,
+.animal-results span {
+  display: block;
+}
+
+.animal-results strong {
+  font-size: 14px;
+}
+
+.animal-results span,
+.empty-result {
+  color: #6d786f;
+  font-size: 12px;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -393,6 +435,10 @@ th {
   .weighings-layout {
     grid-template-columns: 1fr;
   }
+
+  .animal-results {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 650px) {
@@ -425,6 +471,7 @@ th {
   .cards,
   .grid,
   .grid.two,
+  .animal-results,
   .mini-cards {
     grid-template-columns: 1fr;
   }

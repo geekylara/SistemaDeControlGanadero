@@ -240,8 +240,25 @@ function Weighings({ animals, weighings, onDone }) {
   const activeAnimals = animals.filter((animal) => animal.status === "Activo");
   const [dateValue, setDateValue] = useState(today);
   const [rows, setRows] = useState([]);
-  const [selected, setSelected] = useState("");
+  const [animalSearch, setAnimalSearch] = useState("");
   const [history, setHistory] = useState(null);
+
+  const filteredAnimals = useMemo(() => {
+    const text = animalSearch.trim().toLowerCase();
+    const existing = new Set(rows.map((row) => row.animal_id));
+    return activeAnimals
+      .filter((animal) => !existing.has(animal.id))
+      .filter((animal) => {
+        if (!text) return true;
+        return [
+          animal.ear_tag,
+          animal.lot,
+          animal.breed,
+          animal.supplier,
+        ].some((value) => String(value || "").toLowerCase().includes(text));
+      })
+      .slice(0, 8);
+  }, [activeAnimals, animalSearch, rows]);
 
   const pendingSummary = useMemo(() => {
     const validRows = rows.filter((row) => row.weight_kg !== "");
@@ -249,14 +266,13 @@ function Weighings({ animals, weighings, onDone }) {
     return { count: validRows.length, total };
   }, [rows]);
 
-  function addAnimal() {
-    const id = Number(selected);
-    if (!id) return;
+  function addAnimalById(id) {
     if (rows.some((row) => row.animal_id === id)) {
       alert("Ese animal ya está en la jornada.");
       return;
     }
     const animal = animals.find((item) => item.id === id);
+    if (!animal) return;
     setRows([
       ...rows,
       {
@@ -268,7 +284,20 @@ function Weighings({ animals, weighings, onDone }) {
         notes: "",
       },
     ]);
-    setSelected("");
+    setAnimalSearch("");
+  }
+
+  function addAnimal() {
+    if (filteredAnimals.length === 1) {
+      addAnimalById(filteredAnimals[0].id);
+      return;
+    }
+    const exactMatch = filteredAnimals.find((animal) => animal.ear_tag.toLowerCase() === animalSearch.trim().toLowerCase());
+    if (exactMatch) {
+      addAnimalById(exactMatch.id);
+      return;
+    }
+    alert("Digita un arete y selecciona el animal correcto de la lista.");
   }
 
   const addAllActive = () => {
@@ -339,10 +368,31 @@ function Weighings({ animals, weighings, onDone }) {
         </div>
         <div className="grid two">
           <label>Fecha<input type="date" value={dateValue} onChange={(event) => setDateValue(event.target.value)} /></label>
-          <label>Agregar animal<select value={selected} onChange={(event) => setSelected(event.target.value)}><option value="">Seleccionar</option>{activeAnimals.map((animal) => <option value={animal.id} key={animal.id}>{animal.ear_tag} - actual {kg(animal.current_weight_kg)}</option>)}</select></label>
+          <label>
+            Buscar animal
+            <input
+              placeholder="Digita el arete, lote, raza..."
+              value={animalSearch}
+              onChange={(event) => setAnimalSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addAnimal();
+                }
+              }}
+            />
+          </label>
+        </div>
+        <div className="animal-results">
+          {filteredAnimals.length ? filteredAnimals.map((animal) => (
+            <button type="button" key={animal.id} onClick={() => addAnimalById(animal.id)}>
+              <strong>{animal.ear_tag}</strong>
+              <span>{animal.lot || "Sin lote"} · actual {kg(animal.current_weight_kg)}</span>
+            </button>
+          )) : <div className="empty-result">No hay animales activos que coincidan.</div>}
         </div>
         <div className="button-row">
-          <button className="secondary" onClick={addAnimal}>+ Agregar a la jornada</button>
+          <button className="secondary" onClick={addAnimal}>+ Agregar coincidencia</button>
           <button className="secondary" onClick={addAllActive}>+ Agregar activos</button>
         </div>
         <div className="table-wrap">
